@@ -1,23 +1,45 @@
 #include "trace.h"
 #include "utils.h"
 #include <chrono>
-
+#include <stdlib.h>
+#include <sstream>
+#include <iomanip>
 namespace vans::trace
 {
 
-bool trace::get_dram_trace_request(logic_addr_t &addr,
+int n_thread, n_read;
+//std::stringstream sstream;
+
+bool get_dram_trace_request(logic_addr_t &addr,
                                    base_request_type &type,
                                    bool &critical,
                                    clk_t &idle_clk_injection)
 {
     std::string line;
-    do {
+    /*do {
         getline(file, line);
     } while (line.rfind('#', 0) == 0);
     if (file.eof()) {
         return false;
+    }*/
+    //random addr; step of 64 bytes; max addr is 640,000 | 0x9C400
+    int addr_int = (rand() % 10000) * 64;
+    //sstream << std::hex << addr_int;
+    std::stringstream stream;
+    stream << "0x" 
+         << std::setfill ('0') << std::setw(8) 
+         << std::hex << addr_int;
+    std::string addr_str = stream.str();
+    //type
+    if (n_read > 0) {
+        line = addr_str + " R";
     }
-
+    else {
+        line = addr_str + " W";
+    }
+    std::cout << line << std::endl;
+    
+    
     size_t pos;
     addr     = std::stoul(line, &pos, 16);
     critical = false;
@@ -43,9 +65,13 @@ bool trace::get_dram_trace_request(logic_addr_t &addr,
     return true;
 }
 
-void run_trace(root_config &cfg, std::string &trace_filename, std::shared_ptr<base_component> model)
+void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<base_component> model)
 {
-    trace trace(trace_filename);
+    int access_count = 0;
+    int access_end = 10; //0.1m requests
+    n_thread = num_thread;
+    n_read = num_read;
+    //trace trace(trace_filename);
     bool stall               = false;
     bool trace_end           = false;
     bool critical_stall      = false;
@@ -83,15 +109,18 @@ void run_trace(root_config &cfg, std::string &trace_filename, std::shared_ptr<ba
 
     auto sim_start = std::chrono::high_resolution_clock::now();
 
-    while (!trace_end) {
+    while (access_count < access_end) {
         if (!wait_idle_clk) {
-            if (!trace_end && !stall && !critical_stall) {
-                trace_end = !trace.get_dram_trace_request(addr, type, critical_load, idle_clk_injection);
+            if (access_count < access_end&& !stall && !critical_stall) {
+                access_count++;
+                
+                get_dram_trace_request(addr, type, critical_load, idle_clk_injection);
+                
                 if (idle_clk_injection != clk_invalid)
                     wait_idle_clk = true;
             }
 
-            if (!trace_end) {
+            if (access_count < access_end) {
                 req.addr = addr;
                 req.type = type;
                 if (critical_load) {
@@ -165,3 +194,4 @@ void run_trace(root_config &cfg, std::string &trace_filename, std::shared_ptr<ba
 }
 
 } // namespace vans::trace
+

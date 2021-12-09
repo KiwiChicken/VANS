@@ -7,7 +7,9 @@ from pathlib import Path
 import re
 import csv
 import shutil
+from threading import Lock
 
+s_print_lock = Lock()
 
 class testcase:
     def __init__(self, info: dict):
@@ -20,10 +22,15 @@ class testcase:
 
     # Run all 'run_script' under test dir
     def run(self):
+        
         print(f"[START] {self.info['name']}")
+        
         script_path = (self.info['path'] / self.info['run_script']).resolve()
+        print(self.info['path'])
+        print(self.info['run_script'])
         start = time()
         check_call(['chmod', '+x', script_path])
+        print(script_path)
         check_call(script_path)
         end = time()
         print(f"[ END ] {self.info['name']} {end - start:.3f} sec")
@@ -128,7 +135,11 @@ class base_test:
         raise NotImplementedError()
 
     def testcase_executor(self, index: int):
-        self.testcases[index].run()
+        with s_print_lock:
+            print(self.testcases[index])
+            print(index)
+            print(len(self.testcases))
+            self.testcases[index].run()
 
     def testcase_collector(self, index: int):
         return self.testcases[index].collect_result()

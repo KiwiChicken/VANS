@@ -28,10 +28,10 @@ class trace
 
     virtual ~trace() = default;
 
-    bool get_dram_trace_request(logic_addr_t &addr, base_request_type &type, bool &critical, clk_t &idle_clk_injection);
+    //bool get_dram_trace_request(logic_addr_t &addr, base_request_type &type, bool &critical, clk_t &idle_clk_injection);
 };
 
-void run_trace(root_config &cfg, std::string &trace_filename, std::shared_ptr<base_component> model);
+void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<base_component> model);
 
 } // namespace vans::trace
 
