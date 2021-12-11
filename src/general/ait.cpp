@@ -1,6 +1,8 @@
 #include "ait.h"
 #include <cassert>
 
+#include <sstream>
+#include <iomanip>
 namespace vans::ait
 {
 
@@ -358,17 +360,32 @@ void ait_controller::tick_lsq_read(clk_t curr_clk)
     if (entry_pair == this->buffer.end()) {
         /* Buffer entry not found, need to insert new entry */
         if (this->check_and_evict()) {
+		std::stringstream stream;
+    stream << "0x"
+         << std::setfill ('0') << std::setw(8)
+         << std::hex << rmw_addr;
+    std::string addr_str = stream.str();
+		std::cout << "ait read not found in buffer, rmw_addr: " << addr_str << " " << ait_addr << std::endl;
             /* Buffer has free space, construct new entry in-place */
             entry_pair = buffer.insert(ait_addr, curr_clk, request_type::read_miss, rmw_addr, rmw_bitmap);
             req_served = true;
         } else {
             /* Full and cannot evict */
+		std::cout << "ait full cannot evict" << std::endl;
             req_served = false;
         }
     } else {
         /* Found existing buffer entry, try fast forward
          * NOTE: there's no read-patch in ait, not like rmw
          */
+
+                std::stringstream stream;
+    stream << "0x"
+         << std::setfill ('0') << std::setw(8)
+         << std::hex << rmw_addr;
+    std::string addr_str = stream.str();
+                std::cout << "ait read found in buffer, rmw_addr: " << addr_str << " " << ait_addr << std::endl;
+
         auto &entry = entry_pair->second;
         if (entry.valid_to_read && !entry.pending) {
             entry.assign_new_request(curr_clk, request_type::read_hit, rmw_addr, rmw_bitmap);

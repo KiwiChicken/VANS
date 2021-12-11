@@ -4,18 +4,28 @@
 #include <stdlib.h>
 #include <sstream>
 #include <iomanip>
+
+#include <mutex>
+#include <memory>
+#include <vector>
+#include <thread>
+#include <pthread.h>
+#include <stdlib.h>
+#include <linux/types.h>
+
+using namespace std;
 namespace vans::trace
 {
 
-int n_thread, n_read, access_count=0;
+int n_thread, n_read;
 int r_cnt, w_cnt = 0;
+std::mutex clkmutex;
 //std::stringstream sstream;
 
 bool get_dram_trace_request(logic_addr_t &addr,
                                    base_request_type &type,
                                    bool &critical,
-                                   clk_t &idle_clk_injection,
-                                   int thread_id)
+                                   clk_t &idle_clk_injection)
 {
     std::string line;
     /*do {
@@ -25,7 +35,7 @@ bool get_dram_trace_request(logic_addr_t &addr,
         return false;
     }*/
     //random addr; step of 64 bytes; max addr is 640,000 | 0x9C400
-    int addr_int = access_count*64;//(rand() % 10000) * 64;
+    int addr_int = (rand() % 10000) * 64;
     //sstream << std::hex << addr_int;
     std::stringstream stream;
     stream << "0x"
@@ -33,8 +43,7 @@ bool get_dram_trace_request(logic_addr_t &addr,
          << std::hex << addr_int;
     std::string addr_str = stream.str();
     //type
-    //int t = rand() % 100 + 1;
-    if (thread_id < n_read) {
+    if (n_read > 0) {
         line = addr_str + " R";
         r_cnt++;
     }
@@ -42,7 +51,7 @@ bool get_dram_trace_request(logic_addr_t &addr,
         line = addr_str + " W";
         w_cnt++;
     }
-    std::cout << "next req: " << line << std::endl;
+    //std::cout << line << std::endl;
 
 
     size_t pos;
@@ -72,8 +81,8 @@ bool get_dram_trace_request(logic_addr_t &addr,
 
 void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<base_component> model)
 {
-    //int access_count = 0;
-    int access_end = 10; //0.1m requests
+    int access_count = 0;
+    int access_end = 1000 * 10; //0.1m requests
     n_thread = num_thread;
     n_read = num_read;
     //trace trace(trace_filename);
@@ -113,14 +122,17 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
     base_request req(type, addr, curr_clk, callback);
 
     auto sim_start = std::chrono::high_resolution_clock::now();
-
+    
+    vector<unique_ptr<thread>> workers(num_thread);
+    for (int t = 0; t<num_thread; t++) { // Spawn threads
+      workers[t] = make_unique<thread>([&, t]() {
+    
     while (access_count < access_end) {
-        for (int i =0; i < n_thread; i++){
         if (!wait_idle_clk) {
             if (access_count < access_end&& !stall && !critical_stall) {
                 access_count++;
 
-                get_dram_trace_request(addr, type, critical_load, idle_clk_injection, i);
+                get_dram_trace_request(addr, type, critical_load, idle_clk_injection);
 
                 if (idle_clk_injection != clk_invalid)
                     wait_idle_clk = true;
@@ -168,15 +180,25 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
                 wait_idle_clk = false;
             }
         }
-        }
+        
+        {
+            std::lock_guard<std::mutex> lock(clkmutex);
         model->tick(curr_clk);
         curr_clk++;
+        }
 
         if (heart_beat_epoch != 0 && curr_clk % heart_beat_epoch == 0) {
             std::cout << "Trace heart beat: " << curr_clk << std::endl;
         }
     }
-
+    return;
+    });
+    }
+    
+    for (auto &worker : workers) {
+      worker->join();
+   }
+    
     model->drain();
 
     while (model->pending()) {
@@ -197,8 +219,8 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
     std::cout << "Total ns: " << std::fixed << double(curr_clk) * tCK << std::endl;
     std::cout << "Last command ns: " << std::fixed << double(last_trace_clk) * tCK << std::endl;
     std::cout << "Simulation time: " << sim_duration << " secs" << std::endl;
-
-    std::cout << "Total read  bw: " << std::fixed << double(r_cnt * 64) / (double(curr_clk) * tCK / (1000.0 * 1000.0 * 1000.0)) / 1024 / 1024 /1024 << "GB/s" << std::endl;
+    
+    std::cout << "Total read  bw: " << std::fixed << double(r_cnt * 64) / (double(curr_clk) * tCK  / (1000.0 * 1000.0 * 1000.0)) / 1024 / 1024 /1024 << "GB/s" << std::endl;
     std::cout << "Total write  bw: " << std::fixed << double(w_cnt * 64) / (double(curr_clk) * tCK / (1000.0 * 1000.0 * 1000.0)) / 1024 / 1024 /1024 << "GB/s" << std::endl;
 }
 

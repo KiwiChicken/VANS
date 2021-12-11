@@ -50,6 +50,10 @@ target_include_directories(vans
 
 target_compile_options(vans PRIVATE -Wno-subobject-linkage)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+target_link_libraries(vans PRIVATE Threads::Threads)
+
 include(CTest)
 enable_testing()
 add_test(
