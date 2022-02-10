@@ -78,7 +78,7 @@ class dumper
                 if (errno == EEXIST) {
                     /* Pass, dir exists */
                 } else {
-                    std::cout << "Cannot create the dump dir: " << dirname << std::endl;
+                    //std::cout << "Cannot create the dump dir: " << dirname << std::endl;
                     throw std::runtime_error(strerror(errno));
                 }
             }
@@ -97,9 +97,9 @@ class dumper
     void dump(const char *const msg, bool newline = true)
     {
         if (dump_to_cli) {
-            std::cout << msg;
-            if (newline)
-                std::cout << std::endl;
+            //std::cout << msg;
+            //if (newline)
+                //std::cout << std::endl;
         }
         if (dump_to_file) {
             dump_file << msg;

@@ -37,12 +37,13 @@ bool get_dram_trace_request(logic_addr_t &addr,
     if (thread_id < n_read) {
         line = addr_str + " R";
         r_cnt++;
+
     }
     else {
         line = addr_str + " W";
         w_cnt++;
     }
-    std::cout << "next req: " << line << std::endl;
+    //std::cout << "thread id "<< thread_id << " next req: " << line << std::endl;
 
 
     size_t pos;
@@ -73,9 +74,11 @@ bool get_dram_trace_request(logic_addr_t &addr,
 void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<base_component> model)
 {
     //int access_count = 0;
-    int access_end = 10; //0.1m requests
+    int access_end = 20000; //0.1m requests
     n_thread = num_thread;
     n_read = num_read;
+    int n_idle = n_thread;
+
     //trace trace(trace_filename);
     bool stall               = false;
     bool trace_end           = false;
@@ -90,15 +93,19 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
     counter cnt_events("vans", "run_trace", {"write_access", "read_access", "total"});
     size_t tail_latency_cnt = 0;
 
-    auto critical_read_callback = [&critical_stall](logic_addr_t logic_addr, clk_t curr_clk) {
+    auto critical_read_callback = [&critical_stall, &n_idle](logic_addr_t logic_addr, clk_t curr_clk) {
         critical_stall = false;
+	std::cout << "[" ;
+	n_idle++;
     };
     auto tail_latency_callback = [&](logic_addr_t logic_addr, clk_t curr_clk) {
         tail_latency_cnt++;
         if (logic_addr % 256 == 0)
             std::cout << "[" << tail_latency_cnt << "]:" << curr_clk << std::endl;
     };
-    auto normal_read_callback = [&](logic_addr_t logic_addr, clk_t curr_clk) {};
+    auto normal_read_callback = [&n_idle](logic_addr_t logic_addr, clk_t curr_clk) {
+	    //std::cout << "ret R" << std::endl;
+	    n_idle++;};
 
     base_callback_f callback = normal_read_callback;
     if (cfg["trace"].get_ulong("report_tail_latency") != 0) {
@@ -115,13 +122,16 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
     auto sim_start = std::chrono::high_resolution_clock::now();
 
     while (access_count < access_end) {
-        for (int i =0; i < n_thread; i++){
+	    int cur_idle = n_idle;
+        for (int i =0; i < cur_idle; i++){
         if (!wait_idle_clk) {
             if (access_count < access_end&& !stall && !critical_stall) {
                 access_count++;
 
                 get_dram_trace_request(addr, type, critical_load, idle_clk_injection, i);
 
+		//std::cout << "issue R" << std::endl;
+		n_idle--;
                 if (idle_clk_injection != clk_invalid)
                     wait_idle_clk = true;
             }
@@ -173,7 +183,7 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
         curr_clk++;
 
         if (heart_beat_epoch != 0 && curr_clk % heart_beat_epoch == 0) {
-            std::cout << "Trace heart beat: " << curr_clk << std::endl;
+            //std::cout << "Trace heart beat: " << curr_clk << std::endl;
         }
     }
 
@@ -183,7 +193,7 @@ void run_trace(root_config &cfg, int num_thread, int num_read, std::shared_ptr<b
         model->tick(curr_clk);
         curr_clk++;
         if (heart_beat_epoch != 0 && curr_clk % heart_beat_epoch == 0) {
-            std::cout << "Trace heart beat: " << curr_clk << std::endl;
+            //std::cout << "Trace heart beat: " << curr_clk << std::endl;
         }
     }
 

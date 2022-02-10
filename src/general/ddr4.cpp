@@ -340,6 +340,7 @@ void DDR4::print_config()
     std::cout << "channel:\t" << count[int(level::channel)] << std::endl;
     std::cout << "rank:\t" << count[int(level::rank)] << std::endl;
     std::cout << "bank_group:\t" << count[int(level::bank_group)] << std::endl;
+    
     std::cout << "bank:\t" << count[int(level::bank)] << std::endl;
     std::cout << "row:\t" << count[int(level::row)] << std::endl;
     std::cout << "col:\t" << count[int(level::col)] << std::endl;

@@ -39,7 +39,7 @@ make_component(const std::string &name, const root_config &cfg, unsigned int com
 {
     auto ret = make_single_component(name, cfg, component_id);
     auto org = cfg.get_organization(name);
-    //std::cout << org.count << "\n";
+    ////std::cout << org.count << "\n";
     if (org.count != 0) {
         for (auto i = 0; i < org.count; i++) {
             auto next = make_component(org.type, cfg, i);

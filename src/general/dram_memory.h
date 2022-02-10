@@ -313,12 +313,12 @@ class dram_media_controller : public media_controller<dram_media_request, DRAM<S
     {
         channel->update(cmd, addr_vec, curr_clk);
 
-        if (print_trace) {
-            std::cout << channel->spec->command_name.find(cmd)->second << '\t' << curr_clk << '\t';
+        /*if (print_trace) {
+            //std::cout << channel->spec->command_name.find(cmd)->second << '\t' << curr_clk << '\t';
             for (int i = 0; i < channel->spec->total_levels; i++)
-                std::cout << addr_vec[i] << '\t';
-            std::cout << std::endl;
-        }
+                //std::cout << addr_vec[i] << '\t';
+            //std::cout << std::endl;
+        }*/
     }
 };
 
